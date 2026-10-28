@@ -2,7 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please do **not** open a public issue. E-mail the maintainer (see the GitHub profile of @sNok3) with:
+Please do **not** open a public issue. Use **Report a vulnerability** on the Security tab of this
+repository (private vulnerability reporting), with:
 
 - what you found and where (URL, file, request),
 - steps to reproduce,

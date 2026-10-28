@@ -13,7 +13,7 @@ admin role, a database, secrets and a CI/CD pipeline.
 | Database | SQLite locally (any Laravel-supported DB in production); note fields encrypted per column |
 | File storage | `storage/app/private/vault/<uuid>.bin`, every file AES-256-GCM encrypted |
 | Logging | `storage/logs/security-YYYY-MM-DD.log` (JSON lines) + the normal application log |
-| Repository / CI | GitHub (private), GitHub Actions, Dependabot |
+| Repository / CI | GitHub (public), GitHub Actions, CodeQL, Dependabot |
 
 ```mermaid
 flowchart LR
