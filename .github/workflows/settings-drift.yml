@@ -1,0 +1,34 @@
+name: settings-drift
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Protected environment holding SETTINGS_READ_TOKEN: a fine-grained PAT for this repository only,
+    # read-only "Administration" permission (GITHUB_TOKEN cannot read these settings).
+    environment: security-audit
+    steps:
+      - name: Compare repository security settings with the expected state
+        env:
+          GH_TOKEN: ${{ secrets.SETTINGS_READ_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fail=0
+          check() { if [ "$2" = "$3" ]; then echo "OK   $1"; else echo "::error::$1 is '$2', expected '$3'"; fail=1; fi; }
+
+          check "default workflow token permission" "$(gh api "repos/$REPO/actions/permissions/workflow" --jq .default_workflow_permissions)" read
+          check "Actions may approve pull requests" "$(gh api "repos/$REPO/actions/permissions/workflow" --jq .can_approve_pull_request_reviews)" false
+          check "Dependabot alerts" "$(gh api "repos/$REPO/vulnerability-alerts" --silent && echo on || echo off)" on
+          check "Dependabot security updates" "$(gh api "repos/$REPO/automated-security-fixes" --jq .enabled)" true
+
+          rules=$(gh api "repos/$REPO/rules/branches/main" --jq '[.[].type] | join(",")')
+          for r in pull_request required_status_checks non_fast_forward deletion; do
+            check "ruleset rule $r on main" "$(echo "$rules" | grep -qw "$r" && echo present || echo missing)" present
+          done
+          exit $fail

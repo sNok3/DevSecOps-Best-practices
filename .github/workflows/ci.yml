@@ -1,0 +1,45 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sodium
+          coverage: none
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install PHP dependencies (exact versions from composer.lock)
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Known vulnerabilities in PHP dependencies
+        run: composer audit --locked --abandoned=fail
+      - name: Install JS dependencies (exact versions from package-lock.json, no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Known vulnerabilities in JS dependencies
+        run: npm audit --audit-level=moderate
+      - name: Build frontend
+        run: npm run build
+      - name: Prepare environment (throw-away keys, never a real secret)
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          echo "VAULT_FILE_KEY=$(php artisan vault:key | cut -d= -f2-)" >> .env
+      - name: Tests
+        run: php artisan test
+      - name: Code style
+        run: vendor/bin/pint --test

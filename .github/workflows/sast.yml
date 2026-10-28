@@ -1,0 +1,20 @@
+name: sast
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+permissions:
+  contents: read
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # CodeQL needs GitHub Code Security on a private repository; Semgrep's open rules run anywhere.
+      - name: Semgrep (PHP, Laravel, React, secrets)
+        run: pipx run semgrep==1.182.0 scan --metrics=off --error --config p/php --config p/react --config p/secrets --exclude vendor --exclude node_modules --exclude public/build --exclude tests/fixtures

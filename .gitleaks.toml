@@ -1,0 +1,10 @@
+title = "devsecops-vault"
+
+[extend]
+useDefault = true
+
+# The canary fixture holds a deliberately fake secret. It is skipped by the normal scan and scanned on its
+# own by the canary step in secret-scan.yml, which fails if gitleaks stops detecting it.
+[allowlist]
+description = "canary fixture"
+paths = ['''tests/fixtures/''']

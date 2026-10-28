@@ -1,0 +1,8 @@
+# Every change needs the owner's review; security-relevant paths are listed explicitly so the rule stays
+# obvious if more people join.
+*                         @sNok3
+/.github/                 @sNok3
+/app/Support/             @sNok3
+/app/Http/Middleware/     @sNok3
+/config/                  @sNok3
+/SECURITY.md              @sNok3
