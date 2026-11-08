@@ -18,7 +18,8 @@ jobs:
       # The Branch-Protection check needs a token with admin read; it is skipped without one.
       - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
         with:
-          results_file: results.txt
-          results_format: default
+          results_file: results.json
+          results_format: json # only sarif and json are accepted ("unknown result form" otherwise)
           publish_results: false
-      - run: cat results.txt
+      - name: Score per check
+        run: jq -r '"Score \(.score)", (.checks[] | "\(.score)\t\(.name)\t\(.reason)")' results.json
