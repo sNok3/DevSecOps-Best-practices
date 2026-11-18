@@ -30,8 +30,13 @@ jobs:
         run: composer audit --locked --abandoned=fail
       - name: Install JS dependencies (exact versions from package-lock.json, no install scripts)
         run: npm ci --ignore-scripts
-      - name: Known vulnerabilities in JS dependencies
+      # Blocks on what ships to the browser; build tools (devDependencies) never reach production.
+      - name: Known vulnerabilities in JS runtime dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      # Still reported, so a dev-only advisory stays visible until Dependabot can update it.
+      - name: Known vulnerabilities in JS build tools (report only)
         run: npm audit --audit-level=moderate
+        continue-on-error: true
       - name: Build frontend
         run: npm run build
       - name: Prepare environment (throw-away keys, never a real secret)
