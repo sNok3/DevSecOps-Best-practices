@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      target: app
+    build: .
     image: devsecops-vault
     env_file: .env
     depends_on:
@@ -12,6 +10,8 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - storage:/app/storage
+      # The same file as env_file, read-only: `php artisan test` reads it to reset the environment.
+      - ./.env:/app/.env:ro
     read_only: true
     tmpfs:
       - /tmp
@@ -52,16 +52,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
-  # Not started by `up`; run with `docker compose run --rm test` (args after `test` replace the command).
-  test:
-    build:
-      context: .
-      target: test
-    profiles: [test]
-    network_mode: none  # tests need no network: in-memory SQLite, breach check faked
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
 
 volumes:
   storage:

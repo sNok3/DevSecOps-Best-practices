@@ -4,6 +4,7 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -11,6 +12,18 @@ abstract class TestCase extends BaseTestCase
 
     /** Body the fake Pwned Passwords API answers with ("SUFFIX:count" lines); empty = not breached. */
     protected string $pwnedResponse = '';
+
+    /** Last line of defence: RefreshDatabase must only ever run on the throw-away in-memory database. */
+    public function createApplication()
+    {
+        $app = parent::createApplication();
+        $config = $app['config'];
+        if ($config->get('database.default') !== 'sqlite' || $config->get('database.connections.sqlite.database') !== ':memory:') {
+            throw new RuntimeException('Refusing to run the tests: they must use the in-memory SQLite database, not '.$config->get('database.default').' ('.$config->get('database.connections.'.$config->get('database.default').'.database').').');
+        }
+
+        return $app;
+    }
 
     protected function setUp(): void
     {
