@@ -13,6 +13,7 @@ RUN npm run build
 # 2. Runtime: FrankenPHP (Caddy + PHP 8.4 with pdo_sqlite, sodium, Argon2id).
 FROM dunglas/frankenphp:1.9-php8.4-alpine@sha256:ef77236485e5b28a5f61519584d91f3ee603261ab56a4cf343624f2261e3054e
 WORKDIR /app
+RUN install-php-extensions pdo_mysql
 
 COPY --from=composer:2@sha256:0c8e663f14c94d07b3c45b175c51f5a14718508f21fe4dd7e54f09488dd0ed71 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
@@ -39,4 +40,4 @@ EXPOSE 8000
 VOLUME /app/storage
 
 # Fail closed: the container does not start with an insecure configuration.
-CMD ["sh", "-c", "php artisan vault:check-config && touch storage/database.sqlite && php artisan migrate --force && exec frankenphp run --config /etc/frankenphp/Caddyfile"]
+CMD ["sh", "-c", "php artisan vault:check-config && php artisan migrate --force && exec frankenphp run --config /etc/frankenphp/Caddyfile"]
