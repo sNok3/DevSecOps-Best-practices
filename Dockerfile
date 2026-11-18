@@ -11,21 +11,22 @@ COPY resources ./resources
 RUN npm run build
 
 # 2. Runtime: FrankenPHP (Caddy + PHP 8.4 with pdo_sqlite, pdo_mysql, sodium, Argon2id).
-FROM dunglas/frankenphp:1.12-php8.4-alpine@sha256:1f774f8abc9784fbf9a8ee8444bf93fd7203b983ddaf5ecd56edbc59505ec22c AS app
+FROM dunglas/frankenphp:1.12-php8.4-alpine@sha256:1f774f8abc9784fbf9a8ee8444bf93fd7203b983ddaf5ecd56edbc59505ec22c
 WORKDIR /app
 RUN install-php-extensions pdo_mysql
 
 COPY --from=composer:2@sha256:0c8e663f14c94d07b3c45b175c51f5a14718508f21fe4dd7e54f09488dd0ed71 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress
+RUN composer install --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress
 
 COPY . .
 COPY --from=assets /src/public/build ./public/build
+# Dev dependencies and tests/ are included, so `php artisan test` runs inside the container.
 # Composer is removed after use: nothing in the running image can install packages.
 # setcap -r: port 8000 needs no cap_net_bind_service, so the container can run with cap_drop: ALL.
-RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
+RUN composer dump-autoload --optimize \
  && php artisan package:discover \
- && rm -rf /usr/bin/composer tests \
+ && rm /usr/bin/composer \
  && apk add --no-cache --virtual .setcap libcap && setcap -r /usr/local/bin/frankenphp && apk del .setcap \
  && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
  && adduser -D -u 10001 app \
@@ -42,16 +43,3 @@ VOLUME /app/storage
 # Fail closed: the container does not start with an insecure configuration.
 CMD ["sh", "-c", "php artisan vault:check-config && php artisan migrate --force && exec frankenphp run --config /etc/frankenphp/Caddyfile"]
 
-# 3. Tests: the runtime image plus dev dependencies and tests/ (`docker compose run --rm test`).
-FROM app AS test
-USER root
-COPY --from=composer:2@sha256:0c8e663f14c94d07b3c45b175c51f5a14718508f21fe4dd7e54f09488dd0ed71 /usr/bin/composer /usr/bin/composer
-COPY tests ./tests
-RUN composer install --no-interaction --no-progress --prefer-dist && chown app:app /app
-USER app
-# Same as CI: throw-away keys in a fresh .env, never a real secret; phpunit.xml uses in-memory SQLite.
-ENTRYPOINT ["sh", "-c", "cp .env.example .env && php artisan key:generate -q && echo \"VAULT_FILE_KEY=$(php artisan vault:key | cut -d= -f2-)\" >> .env && exec \"$@\"", "--"]
-CMD ["php", "artisan", "test"]
-
-# Default target (plain `docker build .`) is the runtime image, not the test image.
-FROM app
