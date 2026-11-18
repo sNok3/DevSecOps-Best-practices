@@ -37,14 +37,17 @@ The session cookie is `Secure`. Browsers accept that on `http://localhost`; anyw
 cp .env.example .env
 # put two different keys in .env (APP_KEY and VAULT_FILE_KEY), e.g. generated with:
 php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
+# and a database password (DB_PASSWORD=...) for the MySQL container
 docker compose up -d --build            # http://localhost:8000
 docker compose exec -e ADMIN_EMAIL=you@example.com -e ADMIN_PASSWORD='a long admin passphrase' app php artisan db:seed --force
 ```
 
-The container refuses to start when `vault:check-config` fails, runs the migrations on start and keeps
-the SQLite database, encrypted files and logs in the `storage` volume. It runs as a non-root user with a
-read-only root file system, no Linux capabilities and `no-new-privileges`, and the port is bound to
-`127.0.0.1` only. Base images are pinned by digest and updated by Dependabot.
+The app container refuses to start when `vault:check-config` fails, waits for MySQL to be healthy, runs
+the migrations and keeps the encrypted files and logs in the `storage` volume. It runs as a non-root user
+with a read-only root file system, no Linux capabilities and `no-new-privileges`, and its port is bound to
+`127.0.0.1` only. MySQL 8.4 keeps its data in the `dbdata` volume, has no published port (only the app
+can reach it) and a random root password that is never used. Base images are pinned by digest and updated
+by Dependabot.
 
 ## Tests
 
