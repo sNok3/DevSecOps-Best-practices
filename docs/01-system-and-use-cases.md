@@ -63,5 +63,3 @@ flowchart LR
     UC07 -. triggers .-> UC08
 ```
 
-*Mermaid has no UML use-case diagram type; actors are circles, use cases rounded boxes. For the
-presentation the same diagram can be drawn in draw.io / PlantUML (`@startuml ... actor User ... (Manage notes) ... @enduml`).*
