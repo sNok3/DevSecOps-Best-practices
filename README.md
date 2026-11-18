@@ -17,7 +17,7 @@ which includes all of these).
 ```bash
 composer install
 npm ci                                   # .npmrc: install scripts disabled, audit on
-cp .env.example .env
+cp .env.example .env                     # then set DB_CONNECTION=sqlite and remove the other DB_ lines
 php artisan key:generate                 # APP_KEY
 php artisan vault:key                    # prints VAULT_FILE_KEY=...  -> paste it into .env
 # local only: set APP_DEBUG=true in .env if you want stack traces
@@ -35,12 +35,18 @@ The session cookie is `Secure`. Browsers accept that on `http://localhost`; anyw
 
 ```bash
 cp .env.example .env
-# put two different keys in .env (APP_KEY and VAULT_FILE_KEY), e.g. generated with:
+# .env is the single source of truth: put two different keys in it (APP_KEY and VAULT_FILE_KEY), e.g. from
 php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
-# and a database password (DB_PASSWORD=...) for the MySQL container
+# and a long random DB_PASSWORD; the MySQL container is created with the DB_ values from .env
 docker compose up -d --build            # http://localhost:8000
 docker compose exec -e ADMIN_EMAIL=you@example.com -e ADMIN_PASSWORD='a long admin passphrase' app php artisan db:seed --force
+
+docker compose run --rm test                                    # all tests (in-memory SQLite, no network)
+docker compose run --rm test php artisan test --filter=NoteTest # one test class
 ```
+
+MySQL reads `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` only when the `dbdata` volume is created; to change
+them later, change them in MySQL too or start over with `docker compose down -v` (deletes the data).
 
 The app container refuses to start when `vault:check-config` fails, waits for MySQL to be healthy, runs
 the migrations and keeps the encrypted files and logs in the `storage` volume. It runs as a non-root user
