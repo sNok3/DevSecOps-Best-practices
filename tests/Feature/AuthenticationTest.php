@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Auth\LoginController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Testing\TestResponse;
+use ReflectionProperty;
 use Tests\TestCase;
 
 /** Misuse cases MC-01 (brute force / credential stuffing), MC-02 (user enumeration), MC-03 (privilege escalation at sign-up). */
@@ -130,6 +134,66 @@ class AuthenticationTest extends TestCase
 
         $raw = implode("\n", array_map('json_encode', $this->securityEvents()));
         $this->assertStringNotContainsString('Pa55word-that-must-not-leak', $raw);
+    }
+
+    public function test_password_longer_than_128_characters_is_rejected(): void
+    {
+        $long = str_repeat('a long passphrase ', 8); // 144 characters
+        $this->register(['password' => $long, 'password_confirmation' => $long])->assertSessionHasErrors('password');
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_registration_is_throttled_after_five_attempts_per_minute(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->register(['email' => "bot{$i}@example.com"]);
+            $this->post('/logout');
+        }
+
+        $this->register(['email' => 'bot5@example.com'])->assertStatus(429);
+        $this->assertDatabaseCount('users', 5);
+        $this->assertCount(1, $this->eventsNamed('abuse.rate_limited'));
+    }
+
+    public function test_unknown_email_still_runs_one_password_hash_check(): void
+    {
+        // Equal work for known and unknown e-mails: response time must not reveal which accounts exist (MC-02).
+        // The dummy hash is built lazily, only when an unknown e-mail is checked against it.
+        $dummy = new ReflectionProperty(LoginController::class, 'dummyHash');
+        $dummy->setValue(null, null);
+
+        $this->post('/login', ['email' => 'nobody@example.com', 'password' => 'not-the-password'])->assertSessionHasErrors('email');
+
+        $this->assertStringStartsWith('$argon2id$', $dummy->getValue());
+        $dummy->setValue(null, null);
+    }
+
+    public function test_outdated_password_hash_is_upgraded_at_login_and_logged(): void
+    {
+        $user = User::factory()->create(['email' => 'bob@example.com']);
+        // An Argon2id hash with weaker parameters than configured, as left by an older release.
+        $old = password_hash('the real password 1', PASSWORD_ARGON2ID, ['memory_cost' => 512, 'time_cost' => 1, 'threads' => 1]);
+        DB::table('users')->where('id', $user->id)->update(['password' => $old]);
+
+        $this->post('/login', ['email' => 'bob@example.com', 'password' => 'the real password 1'])->assertRedirect('/notes');
+
+        $new = $user->fresh()->password;
+        $this->assertNotSame($old, $new);
+        $this->assertFalse(Hash::needsRehash($new));
+        $this->assertTrue(Hash::check('the real password 1', $new));
+        $this->assertCount(1, $this->eventsNamed('crypto.password.rehashed'));
+    }
+
+    public function test_logout_ends_the_session(): void
+    {
+        $user = User::factory()->create(['email' => 'bob@example.com', 'password' => 'the real password 1']);
+        $this->post('/login', ['email' => 'bob@example.com', 'password' => 'the real password 1'])->assertRedirect('/notes');
+
+        $this->post('/logout')->assertRedirect('/login');
+
+        $this->assertGuest();
+        $this->get('/notes')->assertRedirect('/login');
+        $this->assertCount(1, $this->eventsNamed('auth.logout'));
     }
 
     public function test_guests_are_sent_to_login(): void
