@@ -2,7 +2,7 @@
 
 Every misuse case becomes one or more test cases: *given* the attacker's action, *expect* it to be
 blocked **and** to leave a trace in the security log. The tests run offline with
-`php artisan test` (82 tests) and in CI on every pull request (`.github/workflows/ci.yml`).
+`php artisan test` (88 tests) and in CI on every pull request (`.github/workflows/ci.yml`).
 
 | Misuse case | Test case (input → expected result) | Test |
 |---|---|---|
@@ -10,11 +10,17 @@ blocked **and** to leave a trace in the security log. The tests run offline with
 | MC-01 session fixation | Session id before login ≠ after login | `…::test_successful_login_regenerates_the_session_and_is_logged` |
 | MC-01 weak password | `Short1!` → rejected; breached passphrase (fake API) → rejected | `…::test_short_password_is_rejected`, `…::test_breached_password_is_rejected` |
 | MC-01 disabled account | Disabled user logs in → refused; existing session → logged out | `…::test_disabled_account_cannot_log_in`, `…::test_disabled_account_loses_its_existing_session` |
+| MC-01 weak password (upper limit) | 144-character password → rejected (max 128) | `AuthenticationTest::test_password_longer_than_128_characters_is_rejected` |
+| MC-01 sign-up flooding | 6th registration in a minute → 429 + `abuse.rate_limited` | `…::test_registration_is_throttled_after_five_attempts_per_minute` |
+| MC-01 logout | After `POST /logout` → guest, `/notes` redirects to login, `auth.logout` logged | `…::test_logout_ends_the_session` |
+| MC-01 outdated hash | Argon2id hash with weaker parameters → upgraded at login, `crypto.password.rehashed` logged | `…::test_outdated_password_hash_is_upgraded_at_login_and_logged` |
 | MC-02 enumeration | Wrong password vs unknown e-mail → identical message | `…::test_wrong_password_gives_the_same_generic_error_as_an_unknown_account` |
+| MC-02 enumeration by timing | Unknown e-mail → the dummy Argon2id hash is still checked (equal work) | `…::test_unknown_email_still_runs_one_password_hash_check` |
 | MC-03 role escalation | POST `/register` with `role=admin` → role stays `user` | `…::test_role_cannot_be_set_through_the_registration_form` |
 | MC-04 IDOR notes | Mallory GET/PUT/DELETE Alice's note → 404 ×3, note unchanged, 3× `authz.denied` with Mallory's id | `NoteTest::test_other_users_note_is_not_found_and_the_attempt_is_logged` |
 | MC-04 mass assignment | POST note with `user_id` of Bob → stored for Alice | `NoteTest::test_user_id_cannot_be_injected_to_create_a_note_for_someone_else` |
 | MC-05 stored XSS | Note body `<script>alert(document.cookie)</script>` → HTML contains only `<script`; title with `<img onerror>` → rejected | `NoteTest::test_script_in_a_note_is_never_returned_as_markup`, `…::test_html_in_the_title_and_control_characters_in_the_body_are_rejected` |
+| MC-05 attack string in the log | Rejected `<script>` title → `input.rejected` with field and rule names only, the value never in the log | `NoteTest::test_rejected_input_is_logged_without_its_value` |
 | MC-06 SQL injection | `/notes/1 OR 1=1` → 404 | `NoteTest::test_sql_injection_in_the_id_is_harmless` |
 | MC-06 DB dump | Raw `notes` row contains no plaintext, has a GCM tag | `NoteTest::test_note_is_encrypted_in_the_database` |
 | MC-07 web shell | `shell.php` → rejected; PHP code named `cat.png` → rejected (content check); real PNG → accepted | `FileTest::test_php_file_is_rejected`, `…::test_php_code_disguised_as_png_is_rejected_by_content_check`, `…::test_real_png_is_accepted` |

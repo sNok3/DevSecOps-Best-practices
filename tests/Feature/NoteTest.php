@@ -88,6 +88,18 @@ class NoteTest extends TestCase
         $this->assertCount(3, $this->eventsNamed('input.rejected'));
     }
 
+    public function test_rejected_input_is_logged_without_its_value(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->post('/notes', ['title' => '<script>steal(document.cookie)</script>', 'body' => 'ok'])->assertSessionHasErrors('title');
+
+        $rejected = $this->eventsNamed('input.rejected');
+        $this->assertCount(1, $rejected);
+        $this->assertArrayHasKey('title', $rejected[0]['context']['data']['fields']);
+        // Field and rule names only: an attack string never ends up in the log (privacy, and no log injection).
+        $this->assertStringNotContainsString('steal(document.cookie)', json_encode($this->securityEvents()));
+    }
+
     public function test_user_id_cannot_be_injected_to_create_a_note_for_someone_else(): void
     {
         [$alice, $bob] = User::factory()->count(2)->create();

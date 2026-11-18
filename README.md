@@ -50,7 +50,7 @@ front and set `APP_ENV=production` and an `https://` `APP_URL` (the app refuses 
 ## Tests
 
 ```bash
-docker compose exec app php artisan test                     # 82 tests, one or more per misuse case (docs/08-security-tests.md)
+docker compose exec app php artisan test                     # 88 tests, one or more per misuse case (docs/08-security-tests.md)
 docker compose exec app php artisan test --filter=NoteTest   # one test class
 ```
 
