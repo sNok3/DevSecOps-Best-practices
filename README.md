@@ -31,6 +31,21 @@ php artisan serve                        # http://localhost:8000
 
 The session cookie is `Secure`. Browsers accept that on `http://localhost`; anywhere else, use HTTPS.
 
+## Run it with Docker
+
+```bash
+cp .env.example .env
+# put two different keys in .env (APP_KEY and VAULT_FILE_KEY), e.g. generated with:
+php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
+docker compose up -d --build            # http://localhost:8000
+docker compose exec -e ADMIN_EMAIL=you@example.com -e ADMIN_PASSWORD='a long admin passphrase' app php artisan db:seed --force
+```
+
+The container refuses to start when `vault:check-config` fails, runs the migrations on start and keeps
+the SQLite database, encrypted files and logs in the `storage` volume. It runs as a non-root user with a
+read-only root file system, no Linux capabilities and `no-new-privileges`, and the port is bound to
+`127.0.0.1` only. Base images are pinned by digest and updated by Dependabot.
+
 ## Tests
 
 ```bash
