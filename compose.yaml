@@ -3,15 +3,6 @@ services:
     build: .
     image: devsecops-vault
     env_file: .env
-    # Wins over .env: MySQL from the db service, logs also go to `docker compose logs`.
-    environment:
-      DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: ${DB_DATABASE:-vault}
-      DB_USERNAME: ${DB_USERNAME:-vault}
-      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
-      LOG_STACK: stderr,daily
     depends_on:
       db:
         condition: service_healthy
@@ -19,6 +10,8 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - storage:/app/storage
+      # The same file as env_file, read-only: `php artisan test` reads it to reset the environment.
+      - ./.env:/app/.env:ro
     read_only: true
     tmpfs:
       - /tmp
@@ -37,8 +30,9 @@ services:
   db:
     image: mysql:8.4@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-vault}
-      MYSQL_USER: ${DB_USERNAME:-vault}
+      # Same values the app reads from .env, the single source of truth.
+      MYSQL_DATABASE: ${DB_DATABASE:?set DB_DATABASE in .env}
+      MYSQL_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
       MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       # No root password to manage or leak: a random one is generated on first start and never used.
       MYSQL_RANDOM_ROOT_PASSWORD: "yes"
