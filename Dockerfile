@@ -11,7 +11,7 @@ COPY resources ./resources
 RUN npm run build
 
 # 2. Runtime: FrankenPHP (Caddy + PHP 8.4 with pdo_sqlite, pdo_mysql, sodium, Argon2id).
-FROM dunglas/frankenphp:1.12-php8.4-alpine@sha256:1f774f8abc9784fbf9a8ee8444bf93fd7203b983ddaf5ecd56edbc59505ec22c
+FROM dunglas/frankenphp:1.14-php8.4-alpine@sha256:f81693fa548684eb12964eeab78d86325b75c5cd91289c09ffc4dd4404a641e5
 WORKDIR /app
 # bash for `docker compose exec app bash`; Alpine only ships sh.
 RUN apk add --no-cache bash && install-php-extensions pdo_mysql
